@@ -1,8 +1,8 @@
 # Generic vLLM server launcher
-# Usage: .\serve.ps1 -Script start_nemotron_omni.sh -Model E:\models\Nemotron-3-Nano-Omni-NVFP4 -Name vllm-nemotron-omni
+# Usage: .\serve.ps1 -Script models/start_nemotron_omni.sh -Model E:\models\Nemotron-3-Nano-Omni-NVFP4 -Name vllm-nemotron-omni
 
 param(
-    [string]$Script = "start_nemotron_omni.sh",
+    [string]$Script = "models/start_nemotron_omni.sh",
     [string]$Model  = "E:\models\Nemotron-3-Nano-Omni-NVFP4",
     [string]$Name   = "vllm-server"
 )
