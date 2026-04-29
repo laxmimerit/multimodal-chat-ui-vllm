@@ -132,9 +132,7 @@ export default function Home() {
   const [mediaKind, setMediaKind] = useState<MediaKind>(null);
   const [input, setInput]         = useState("");
   const [recording, setRecording] = useState(false);
-  const [sideOpen, setSideOpen]       = useState(true);
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [sysOpen, setSysOpen]         = useState(false);
+  const [sideOpen, setSideOpen] = useState(true);
 
   const fileRef     = useRef<HTMLInputElement>(null);
   const bottomRef   = useRef<HTMLDivElement>(null);
@@ -145,23 +143,17 @@ export default function Home() {
 
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
-  // Persist / restore conversations and system prompt
+  // Persist / restore conversations
   useEffect(() => {
     try {
       const saved = localStorage.getItem("chat-convs");
       if (saved) {
         const parsed: Conversation[] = JSON.parse(saved);
-        if (parsed.length > 0) { setConvs(parsed); setActiveId(parsed[0].id); }
-        else { const c = blankConv(); setConvs([c]); setActiveId(c.id); }
-      } else { const c = blankConv(); setConvs([c]); setActiveId(c.id); }
-    } catch { const c = blankConv(); setConvs([c]); setActiveId(c.id); }
-    const sp = localStorage.getItem("chat-system-prompt");
-    if (sp) setSystemPrompt(sp);
+        if (parsed.length > 0) { setConvs(parsed); setActiveId(parsed[0].id); return; }
+      }
+    } catch {}
+    const c = blankConv(); setConvs([c]); setActiveId(c.id);
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("chat-system-prompt", systemPrompt);
-  }, [systemPrompt]);
 
   useEffect(() => {
     if (convs.length === 0) return;
@@ -329,7 +321,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMsgs, thinking, mediaType: mediaKind, systemPrompt }),
+        body: JSON.stringify({ messages: apiMsgs, thinking, mediaType: mediaKind }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -401,27 +393,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* System prompt editor */}
-          <div style={s.sysSection}>
-            <button style={s.sysToggle} onClick={() => setSysOpen(o => !o)}>
-              <span style={{ color: systemPrompt ? "#76b900" : "#555" }}>⚙ System Prompt</span>
-              <span style={{ color: "#444", fontSize: 10 }}>{sysOpen ? "▲" : "▼"}</span>
-            </button>
-            {sysOpen && (
-              <>
-                <textarea
-                  value={systemPrompt}
-                  onChange={e => setSystemPrompt(e.target.value)}
-                  placeholder={"Leave blank to use the default prompt.\n\nExample:\nYou are a helpful assistant..."}
-                  style={s.sysTextarea}
-                  rows={8}
-                />
-                {systemPrompt && (
-                  <button style={s.sysClear} onClick={() => setSystemPrompt("")}>Reset to default</button>
-                )}
-              </>
-            )}
-          </div>
         </div>
       )}
 
@@ -619,10 +590,6 @@ const s: Record<string, React.CSSProperties> = {
   convTitle:   { fontSize: 13, color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   convTime:    { fontSize: 11, color: "#444" },
   delBtn:      { background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 12, padding: "0 2px", lineHeight: 1, transition: "opacity .15s" },
-  sysSection:  { borderTop: "1px solid #1a1a1a", padding: "8px 10px 10px", flexShrink: 0 },
-  sysToggle:   { width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: "4px 2px", fontSize: 12 },
-  sysTextarea: { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 6, color: "#bbb", fontSize: 12, fontFamily: "monospace", lineHeight: 1.5, padding: "8px", resize: "vertical", boxSizing: "border-box" as const, marginTop: 6 },
-  sysClear:    { marginTop: 6, background: "none", border: "1px solid #2a2a2a", borderRadius: 4, color: "#555", fontSize: 11, cursor: "pointer", padding: "3px 8px" },
 
   main:        { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" },
   header:      { display: "flex", alignItems: "center", gap: 10, padding: "12px 20px", borderBottom: "1px solid #1a1a1a", background: "#0d0d0d", flexShrink: 0 },
