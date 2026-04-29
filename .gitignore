@@ -2,9 +2,9 @@
 .claude/
 
 # Next.js
-nemotron-ui/.next/
-nemotron-ui/node_modules/
-nemotron-ui/.env.local
+chat-ui/.next/
+chat-ui/node_modules/
+chat-ui/.env.local
 
 # Python / Jupyter
 __pycache__/
