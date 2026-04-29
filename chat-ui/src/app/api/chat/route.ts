@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
     model: MODEL,
     messages,
     stream: true,
+    stream_options: { include_usage: true },
     temperature: thinking ? 0.6 : 0.2,
     max_tokens:  thinking ? 20480 : 2048,
     chat_template_kwargs: { enable_thinking: thinking },
