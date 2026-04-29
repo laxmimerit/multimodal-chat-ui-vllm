@@ -586,7 +586,7 @@ const s: Record<string, React.CSSProperties> = {
   newChatBtn:  { margin: 12, padding: "9px 14px", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 8, color: "#ccc", fontSize: 13, cursor: "pointer", textAlign: "left" },
   convList:    { flex: 1, overflowY: "auto", padding: "0 8px 12px", minHeight: 0 },
   convItem:    { padding: "9px 10px", borderRadius: 8, cursor: "pointer", marginBottom: 2 },
-  convActive:  { background: "#1a2a0a", borderLeft: "2px solid #76b900", paddingLeft: 8 },
+  convActive:  { background: "#1a2a0a", borderLeft: "2px solid #76b900", padding: "9px 10px 9px 8px" },
   convTitle:   { fontSize: 13, color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   convTime:    { fontSize: 11, color: "#444" },
   delBtn:      { background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 12, padding: "0 2px", lineHeight: 1, transition: "opacity .15s" },
