@@ -1,0 +1,16 @@
+# Claude Code
+.claude/
+
+# Next.js
+nemotron-ui/.next/
+nemotron-ui/node_modules/
+nemotron-ui/.env.local
+
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
