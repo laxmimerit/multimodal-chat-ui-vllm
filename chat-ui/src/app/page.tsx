@@ -3,6 +3,58 @@ import { useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+const langToExt: Record<string, string> = {
+  python: "py", py: "py", javascript: "js", js: "js", typescript: "ts", ts: "ts",
+  tsx: "tsx", jsx: "jsx", html: "html", css: "css", json: "json", bash: "sh",
+  shell: "sh", sh: "sh", sql: "sql", rust: "rs", go: "go", java: "java",
+  cpp: "cpp", c: "c", markdown: "md", yaml: "yml", toml: "toml", xml: "xml",
+};
+
+function CodeBlock({ language, code }: { language: string; code: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied]     = useState(false);
+  const lines = code.split("\n").length;
+  const ext   = langToExt[language.toLowerCase()] ?? "txt";
+
+  function copy() {
+    navigator.clipboard.writeText(code).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function download() {
+    const blob = new Blob([code], { type: "text/plain" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `code.${ext}`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div style={{ background: "#111", border: "1px solid #222", borderRadius: 8, margin: "12px 0", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 14px", background: "#0d0d0d", borderBottom: expanded ? "1px solid #1e1e1e" : "none" }}>
+        <span style={{ fontSize: 12, color: "#76b900", fontFamily: "monospace", fontWeight: 600 }}>{language || "code"}</span>
+        <span style={{ fontSize: 11, color: "#444" }}>{lines} {lines === 1 ? "line" : "lines"}</span>
+        <div style={{ flex: 1 }} />
+        <button onClick={copy}              style={cbtn}>{copied ? "✓ copied" : "copy"}</button>
+        <button onClick={download}          style={cbtn}>↓ save</button>
+        <button onClick={() => setExpanded(e => !e)} style={cbtn}>{expanded ? "▲" : "▼"}</button>
+      </div>
+      {expanded && (
+        <pre style={{ margin: 0, padding: "14px", overflowX: "auto", fontSize: 13, lineHeight: 1.65, color: "#ccc", fontFamily: "monospace" }}>
+          <code>{code}</code>
+        </pre>
+      )}
+    </div>
+  );
+}
+
+const cbtn: React.CSSProperties = {
+  background: "none", border: "1px solid #2a2a2a", borderRadius: 4,
+  color: "#666", fontSize: 11, cursor: "pointer", padding: "2px 8px",
+  fontFamily: "monospace",
+};
+
 type Role = "user" | "assistant";
 type MediaKind = "image" | "audio" | "video" | "video+audio" | null;
 
@@ -243,7 +295,24 @@ export default function Home() {
                     </div>
                   )}
                   <div style={s.mdBody} className="md">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        code({ className, children }) {
+                          const match = /language-(\w+)/.exec(className || "");
+                          const codeStr = String(children).replace(/\n$/, "");
+                          if (codeStr.includes("\n") || match) {
+                            return <CodeBlock language={match?.[1] ?? ""} code={codeStr} />;
+                          }
+                          return (
+                            <code style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", borderRadius: 4, padding: "1px 6px", fontFamily: "monospace", fontSize: 13, color: "#76b900" }}>
+                              {children}
+                            </code>
+                          );
+                        },
+                        pre({ children }) { return <>{children}</>; },
+                      }}
+                    >
                       {m.text || (loading && i === messages.length - 1 ? "▌" : "")}
                     </ReactMarkdown>
                   </div>
@@ -326,9 +395,6 @@ export default function Home() {
         .md h3 { font-size: 1.05em; }
         .md ul,.md ol { padding-left: 20px; margin: 0 0 12px; }
         .md li { margin-bottom: 4px; }
-        .md code { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 13px; color: #76b900; }
-        .md pre { background: #111; border: 1px solid #222; border-radius: 8px; padding: 14px; overflow-x: auto; margin: 12px 0; }
-        .md pre code { background: none; border: none; padding: 0; color: #aaa; font-size: 13px; }
         .md table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
         .md th { background: #1a1a1a; color: #76b900; padding: 8px 12px; border: 1px solid #2a2a2a; text-align: left; font-weight: 600; }
         .md td { padding: 7px 12px; border: 1px solid #1e1e1e; color: #ccc; }
