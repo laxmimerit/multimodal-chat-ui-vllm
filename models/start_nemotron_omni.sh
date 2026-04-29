@@ -1,7 +1,6 @@
 #!/bin/bash
 pip install -q 'vllm[audio]'
 vllm serve /model \
-  --served-model-name nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4 \
   --host 0.0.0.0 \
   --trust-remote-code \
   --max-model-len 131072 \
