@@ -60,7 +60,7 @@ const cbtn: React.CSSProperties = {
 
 interface Usage { prompt_tokens: number; completion_tokens: number; total_tokens: number; }
 type Role      = "user" | "assistant";
-type MediaKind = "image" | "audio" | "video" | "video+audio" | null;
+type MediaKind = "image" | "audio" | "video" | "video+audio" | "pdf" | null;
 
 interface Message {
   role: Role;
@@ -68,6 +68,7 @@ interface Message {
   mediaKind?: MediaKind;
   mediaUrl?: string;
   mediaName?: string;
+  pdfContent?: string;
   thinking: boolean;
   elapsed?: number;
   usage?: Usage;
@@ -131,8 +132,10 @@ export default function Home() {
   const [mediaName, setMediaName] = useState("");
   const [mediaKind, setMediaKind] = useState<MediaKind>(null);
   const [input, setInput]         = useState("");
-  const [recording, setRecording] = useState(false);
-  const [sideOpen, setSideOpen] = useState(true);
+  const [recording, setRecording]   = useState(false);
+  const [sideOpen, setSideOpen]     = useState(true);
+  const [pdfText, setPdfText]       = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const fileRef     = useRef<HTMLInputElement>(null);
   const bottomRef   = useRef<HTMLDivElement>(null);
@@ -224,14 +227,35 @@ export default function Home() {
   // ── media ─────────────────────────────────────────────────────────────────
 
   function detectKind(mime: string): MediaKind {
-    if (mime.startsWith("image/")) return "image";
-    if (mime.startsWith("audio/")) return "audio";
-    if (mime.startsWith("video/")) return "video";
+    if (mime === "application/pdf")  return "pdf";
+    if (mime.startsWith("image/"))   return "image";
+    if (mime.startsWith("audio/"))   return "audio";
+    if (mime.startsWith("video/"))   return "video";
     return null;
   }
 
-  function loadFile(file: File) {
+  async function loadFile(file: File) {
     setMediaMime(file.type); setMediaName(file.name); setMediaKind(detectKind(file.type));
+    if (file.type === "application/pdf") {
+      setPdfLoading(true);
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url
+        ).toString();
+        const data = await file.arrayBuffer();
+        const pdf  = await pdfjsLib.getDocument({ data }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page    = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(content.items.map((it) => "str" in it ? it.str : "").join(" "));
+        }
+        setPdfText(pages.join("\n\n"));
+      } catch { setPdfText(""); alert("Could not extract text from this PDF."); }
+      finally  { setPdfLoading(false); }
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => setMediaB64((reader.result as string).split(",")[1]);
     reader.readAsDataURL(file);
@@ -267,27 +291,35 @@ export default function Home() {
 
   function clearMedia() {
     setMediaB64(null); setMediaMime(""); setMediaName(""); setMediaKind(null);
+    setPdfText("");
     if (fileRef.current) fileRef.current.value = "";
   }
 
   // ── send ──────────────────────────────────────────────────────────────────
 
   function buildApiMessages(history: Message[]): unknown[] {
-    const hist = history.map(m => ({ role: m.role, content: m.text }));
+    const hist = history.map(m => {
+      if (m.pdfContent) {
+        return { role: m.role, content: `[PDF: ${m.mediaName}]\n\n${m.pdfContent}\n\n---\n\n${m.text}` };
+      }
+      return { role: m.role, content: m.text };
+    });
     const content: unknown[] = [];
-    if (mediaB64 && mediaKind) {
+    if (mediaB64 && mediaKind && mediaKind !== "pdf") {
       const url = `data:${mediaMime};base64,${mediaB64}`;
       if (mediaKind === "image") content.push({ type: "image_url", image_url: { url } });
       if (mediaKind === "audio") content.push({ type: "audio_url", audio_url: { url } });
       if (mediaKind === "video" || mediaKind === "video+audio")
         content.push({ type: "video_url", video_url: { url } });
     }
-    content.push({ type: "text", text: input });
+    const userText = pdfText ? `[PDF: ${mediaName}]\n\n${pdfText}\n\n---\n\n${input}` : input;
+    content.push({ type: "text", text: userText });
     return [...hist, { role: "user", content }];
   }
 
   async function send() {
-    if (!input.trim() && !mediaB64) return;
+    if (!input.trim() && !mediaB64 && !pdfText) return;
+    if (pdfLoading) return;
 
     let cid = activeIdRef.current;
     let curMsgs = convs.find(c => c.id === cid)?.messages ?? [];
@@ -301,6 +333,7 @@ export default function Home() {
     const userMsg: Message = {
       role: "user", text: input, mediaKind, mediaName,
       mediaUrl: mediaB64 ? `data:${mediaMime};base64,${mediaB64}` : undefined,
+      pdfContent: pdfText || undefined,
       thinking,
     };
     const apiMsgs  = buildApiMessages(curMsgs);
@@ -445,6 +478,11 @@ export default function Home() {
                   {m.mediaUrl && (m.mediaKind === "video" || m.mediaKind === "video+audio") && (
                     <video controls src={m.mediaUrl} style={s.mediaPreview} />
                   )}
+                  {m.mediaKind === "pdf" && m.pdfContent && (
+                    <div style={{ padding: "8px 14px", fontSize: 12, color: "#555", fontFamily: "monospace" }}>
+                      📄 {m.pdfContent.length.toLocaleString()} chars extracted
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -528,13 +566,17 @@ export default function Home() {
           )}
           {mediaName && (
             <div style={s.attachedFile}>
-              <span style={{ fontSize: 13 }}>📎 {mediaName}</span>
+              <span style={{ fontSize: 13 }}>
+                {mediaKind === "pdf" ? "📄" : "📎"} {mediaName}
+                {pdfLoading && <span style={{ color: "#555", marginLeft: 8 }}>extracting text…</span>}
+                {mediaKind === "pdf" && pdfText && <span style={{ color: "#555", marginLeft: 8 }}>{pdfText.length.toLocaleString()} chars</span>}
+              </span>
               <button style={s.removeBtn} onClick={clearMedia}>✕</button>
             </div>
           )}
           <div style={s.inputRow}>
             <button style={s.iconBtn} onClick={() => fileRef.current?.click()} title="Attach file">📎</button>
-            <input ref={fileRef} type="file" style={{ display: "none" }} accept="image/*,audio/*,video/*"
+            <input ref={fileRef} type="file" style={{ display: "none" }} accept="image/*,audio/*,video/*,.pdf"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) loadFile(f); }} />
             <textarea
               value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey}
@@ -545,8 +587,8 @@ export default function Home() {
               title={recording ? "Stop recording" : "Record audio"} onClick={toggleRecording}>
               {recording ? "⏹" : "🎙"}
             </button>
-            <button onClick={send} disabled={loading || (!input.trim() && !mediaB64)}
-              style={{ ...s.sendBtn, opacity: loading || (!input.trim() && !mediaB64) ? 0.4 : 1 }}>
+            <button onClick={send} disabled={loading || pdfLoading || (!input.trim() && !mediaB64 && !pdfText)}
+              style={{ ...s.sendBtn, opacity: loading || pdfLoading || (!input.trim() && !mediaB64 && !pdfText) ? 0.4 : 1 }}>
               {loading ? "■" : "↑"}
             </button>
           </div>
