@@ -157,7 +157,21 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (convs.length > 0) localStorage.setItem("chat-convs", JSON.stringify(convs));
+    if (convs.length === 0) return;
+    // Strip base64 mediaUrl before persisting — videos/audio can be hundreds of MB
+    const slim = convs.map(c => ({
+      ...c,
+      messages: c.messages.map(m => ({ ...m, mediaUrl: undefined })),
+    }));
+    try {
+      localStorage.setItem("chat-convs", JSON.stringify(slim));
+    } catch {
+      // If history is still too large, save only titles (no messages)
+      try {
+        const titlesOnly = convs.map(c => ({ ...c, messages: [] }));
+        localStorage.setItem("chat-convs", JSON.stringify(titlesOnly));
+      } catch {}
+    }
   }, [convs]);
 
   function blankConv(): Conversation {
